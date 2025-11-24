@@ -28,40 +28,45 @@ $(document).ready(async function () {
    LISTAR ORDENES
    ========================= */
 function CargaLista() {
-  $.get(rutaOrdenTrabajo + "todos", function (data) {
-    if (!data) return;
-    data = JSON.parse(data);
+  $.ajax({
+    url: rutaOrdenTrabajo + "todos",
+    type: "GET",
+    dataType: "json",
+    success: function (data) {
+      if (!data) return;
 
-    let html = "";
-    data.forEach((ot, i) => {
-      html += `
-        <tr>
-          <td>${i + 1}</td>
-          <td>${ot.fecha ?? ""}</td>
-          <td>${ot.vehiculo ?? ""}</td>
-          <td>${ot.usuario ?? ""}</td>
-          <td>${ot.cantidad_items ?? 0}</td>
-          <td>
-            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" 
-                    data-bs-target="#ModalOrdenTrabajo"
-                    onclick="editarOrden(${ot.idServicio})">
-              Editar
-            </button>
-            <button class="btn btn-danger btn-sm" onclick="eliminarOrden(${ot.idServicio})">
-              Eliminar
-            </button>
-          </td>
-        </tr>
-      `;
-    });
+      let html = "";
+      data.forEach((ot, i) => {
+        html += `
+          <tr>
+            <td>${i + 1}</td>
+            <td>${ot.fecha ?? ""}</td>
+            <td>${ot.vehiculo ?? ""}</td>
+            <td>${ot.usuario ?? ""}</td>
+            <td>${ot.cantidad_items ?? 0}</td>
+            <td>
+              <button class="btn btn-primary btn-sm" data-bs-toggle="modal" 
+                      data-bs-target="#ModalOrdenTrabajo"
+                      onclick="editarOrden(${ot.idServicio})">
+                Editar
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="eliminarOrden(${ot.idServicio})">
+                Eliminar
+              </button>
+            </td>
+          </tr>
+        `;
+      });
 
-    $("#ListaOrdenesTrabajo").html(html);
+      $("#ListaOrdenesTrabajo").html(html);
+    },
+    error: function (xhr) {
+      console.error("Error cargando órdenes:", xhr.responseText);
+      alert("Error cargando órdenes:\n" + xhr.responseText);
+    }
   });
 }
 
-/* =========================
-   CARGAR COMBOS BASE
-   ========================= */
 async function CargarCombosBase() {
   await Promise.all([
     CargarUsuarios(),
@@ -71,7 +76,7 @@ async function CargarCombosBase() {
   ]);
 }
 
-/* ---------- USUARIOS DEL SISTEMA (REGISTRA) ---------- */
+/*usuarios */
 function CargarUsuarios() {
   return $.get(rutaUsuarios + "todos", function (data) {
     data = JSON.parse(data || "[]");
@@ -86,7 +91,7 @@ function CargarUsuarios() {
   });
 }
 
-/* ---------- VEHÍCULOS ---------- */
+/* VEHÍCULOS */
 function CargarVehiculos() {
   $.ajax({
     url: rutaVehiculos + "todos",
@@ -112,7 +117,7 @@ function CargarVehiculos() {
 }
 
 
-/* ---------- CLIENTES (PARA ÍTEMS) ---------- */
+/*CLIENTES*/
 function CargarClientes() {
   return $.get(rutaClientes + "todos", function (data) {
     data = JSON.parse(data || "[]");
@@ -120,7 +125,7 @@ function CargarClientes() {
   });
 }
 
-/* ---------- TIPO SERVICIO (tiposervicio) ---------- */
+/*SERVICIO */
 function CargarTiposServicio() {
   return $.get(rutaTipoServicio + "todos", function (data) {
     data = JSON.parse(data || "[]");
@@ -128,9 +133,6 @@ function CargarTiposServicio() {
   });
 }
 
-/* =========================
-   AGREGAR FILA DE ÍTEM
-   ========================= */
 function AgregarItemFila(item = null) {
 
   let opcionesTipo = `<option value="">Seleccione tipo de servicio</option>`;
@@ -166,9 +168,6 @@ function EliminarFilaItem(btn) {
   $(btn).closest("tr").remove();
 }
 
-/* =========================
-   GUARDAR / ACTUALIZAR
-   ========================= */
 function GuardarEditarOrden(e) {
   e.preventDefault();
 
@@ -223,9 +222,6 @@ function GuardarEditarOrden(e) {
 });
 }
 
-/* =========================
-   EDITAR ORDEN
-   ========================= */
 function editarOrden(idServicio) {
   $.post(rutaOrdenTrabajo + "unoServicio", { idServicio }, function (resp) {
     const data = JSON.parse(resp);
@@ -244,9 +240,6 @@ function editarOrden(idServicio) {
   });
 }
 
-/* =========================
-   ELIMINAR ORDEN
-   ========================= */
 function eliminarOrden(idServicio) {
   if (!confirm("¿Desea eliminar esta orden?")) return;
 
@@ -257,9 +250,6 @@ function eliminarOrden(idServicio) {
   });
 }
 
-/* =========================
-   LIMPIAR
-   ========================= */
 function LimpiarFormularioOrden() {
   $("#idServicio").val("");
   $("#id_vehiculo").val("");
