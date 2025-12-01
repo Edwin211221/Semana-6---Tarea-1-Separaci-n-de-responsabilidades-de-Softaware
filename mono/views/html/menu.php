@@ -51,7 +51,7 @@
                     </a>
                 </li>
                 <li class="menu-item">
-                    <a href="../views/orden_trabajo/orden_trabajo.views.php" target="base" class="menu-link">
+                    <a href="orden_trabajo/orden_trabajo.views.php" target="base" class="menu-link">
                         <div data-i18n="Blank">Ordenes de Trabajo</div>
                     </a>
                 </li>
@@ -65,25 +65,12 @@
                         <div data-i18n="Blank">Usuarios</div>
                     </a>
                 </li>
-                            
-                <!-- TAREA -> Clientes -->
-
-                <li class="menu-item">
-                    <a href="clientes/clientes.views.php" target="base" class="menu-link">
-                        <div data-i18n="Fluid">Clientes</div>
-                    </a>
-                </li>
-
-                <!-- TAREA -> Vehículos -->
-
-                <li class="menu-item">
-                    <a href="vehiculos/vehiculos.views.php" target="base" class="menu-link">
-                        <div data-i18n="Fluid">Vehículos</div>
-                    </a>
-                </li>
 
             </ul>
         </li>
+
+
+
 
     </ul>
 </aside>

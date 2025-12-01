@@ -1,192 +1,198 @@
+/* ============================================================
+   INICIALIZACIÓN
+   ============================================================ */
+function init() {
+  // Guardar / Editar
+  $("#form_orden_trabajo").on("submit", (e) => {
+    GuardarEditarOrden(e);
+  });
+
+  // Agregar ítem
+  $("#btnAgregarItem").on("click", () => {
+    AgregarItemFila();
+  });
+}
+
 const rutaOrdenTrabajo = "../../controllers/orden_trabajo.controller.php?op=";
 const rutaVehiculos    = "../../controllers/vehiculos.controllers.php?op=";
 const rutaUsuarios     = "../../controllers/usuario.controllers.php?op=";
-const rutaClientes     = "../../controllers/clientes.controllers.php?op=";
 const rutaTipoServicio = "../../controllers/tipo_servicio.controllers.php?op=";
 
 let listaTiposServicio = [];
 let listaUsuarios      = [];
 let listaVehiculos     = [];
-let listaClientes      = [];
 
-/* =========================
-   INIT
-   ========================= */
-function init() {
-  $("#form_orden_trabajo").on("submit", GuardarEditarOrden);
-  $("#btnAgregarItem").on("click", () => AgregarItemFila());
-}
-
-$(document).ready(async function () {
-  await CargarCombosBase(); 
+$().ready(() => {
+  CargarCombosBase();
   CargaLista();
-  AgregarItemFila();    
-  init();
+  AgregarItemFila(); // Primera fila
 });
 
-/* =========================
-   LISTAR ORDENES
-   ========================= */
-function CargaLista() {
-  $.ajax({
-    url: rutaOrdenTrabajo + "todos",
-    type: "GET",
-    dataType: "json",
-    success: function (data) {
-      if (!data) return;
+/* ============================================================
+   LISTADO DE ÓRDENES DE TRABAJO
+   ============================================================ */
+var CargaLista = () => {
+  let html = "";
+  $.get(rutaOrdenTrabajo + "todos", (Lista_Ordenes) => {
+    if (!Lista_Ordenes) return;
 
-      let html = "";
-      data.forEach((ot, i) => {
-        html += `
-          <tr>
-            <td>${i + 1}</td>
-            <td>${ot.fecha ?? ""}</td>
-            <td>${ot.vehiculo ?? ""}</td>
-            <td>${ot.usuario ?? ""}</td>
-            <td>${ot.cantidad_items ?? 0}</td>
-            <td>
-              <button class="btn btn-primary btn-sm" data-bs-toggle="modal" 
-                      data-bs-target="#ModalOrdenTrabajo"
-                      onclick="editarOrden(${ot.idServicio})">
-                Editar
-              </button>
-              <button class="btn btn-danger btn-sm" onclick="eliminarOrden(${ot.idServicio})">
-                Eliminar
-              </button>
-            </td>
-          </tr>
-        `;
-      });
+    Lista_Ordenes = JSON.parse(Lista_Ordenes);
 
-      $("#ListaOrdenesTrabajo").html(html);
-    },
-    error: function (xhr) {
-      console.error("Error cargando órdenes:", xhr.responseText);
-      alert("Error cargando órdenes:\n" + xhr.responseText);
-    }
+    $.each(Lista_Ordenes, (i, ot) => {
+      html += `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${ot.fecha}</td>
+          <td>${ot.vehiculo}</td>
+          <td>${ot.usuario}</td>
+          <td>${ot.cantidad_items}</td>
+          <td>
+            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" 
+                    data-bs-target="#ModalOrdenTrabajo"
+                    onclick="editarOrden(${ot.idServicio})">
+              Editar
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="eliminarOrden(${ot.idServicio})">
+              Eliminar
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+
+    $("#ListaOrdenesTrabajo").html(html);
   });
+};
+
+/* ============================================================
+   CARGA DE COMBOS
+   ============================================================ */
+function CargarCombosBase() {
+  CargarUsuarios();
+  CargarVehiculos();
+  CargarTiposServicio();
 }
 
-async function CargarCombosBase() {
-  await Promise.all([
-    CargarUsuarios(),
-    CargarVehiculos(),
-    CargarClientes(),
-    CargarTiposServicio()
-  ]);
-}
-
-/*usuarios */
+/* ---------- USUARIOS ---------- */
 function CargarUsuarios() {
-  return $.get(rutaUsuarios + "todos", function (data) {
-    data = JSON.parse(data || "[]");
+  $.get(rutaUsuarios + "todos", (data) => {
+    if (!data) return;
+    data = JSON.parse(data);
     listaUsuarios = data;
 
     let html = `<option value="">Seleccione un usuario</option>`;
-    listaUsuarios.forEach(u => {
-      html += `<option value="${u.id}">${u.nombre_usuario}</option>`;
+    $.each(listaUsuarios, (i, u) => {
+      const nombre = u.nombre_usuario || u.nombres || ("Usuario " + u.id);
+      html += `<option value="${u.id}">${nombre}</option>`;
     });
 
     $("#id_usuario_servicio").html(html);
   });
 }
 
-/* VEHÍCULOS */
+/* ---------- VEHÍCULOS ---------- */
 function CargarVehiculos() {
-  $.ajax({
-    url: rutaVehiculos + "todos",
-    type: "GET",
-    dataType: "json",
-    success: function (data) {
-      if (!data) data = [];
-      listaVehiculos = data;
+  $.get(rutaVehiculos + "todos", (data) => {
+    if (!data) return;
+    listaVehiculos = JSON.parse(data);
 
-      let html = `<option value="">Seleccione un vehículo</option>`;
-      $.each(listaVehiculos, (i, v) => {
-        const cliente = ((v.nombres || "") + " " + (v.apellidos || "")).trim();
-        const label = `${v.marca} ${v.modelo} (${v.anio})${cliente ? " - " + cliente : ""}`;
-        html += `<option value="${v.id}">${label}</option>`;
-      });
+    let html = `<option value="">Seleccione un vehículo</option>`;
+    $.each(listaVehiculos, (i, v) => {
+      const placa = v.placa || v.descripcion || ("Vehículo " + v.id);
+      html += `<option value="${v.id}">${placa}</option>`;
+    });
 
-      $("#id_vehiculo").html(html);
-    },
-    error: function (xhr) {
-      console.error("Error cargando vehículos:", xhr.responseText);
+    $("#id_vehiculo").html(html);
+
+    // Seleccionar vehículo ID = 1 por defecto
+    if (listaVehiculos.some(x => String(x.id) === "1")) {
+      $("#id_vehiculo").val("1");
     }
   });
 }
 
-
-/*CLIENTES*/
-function CargarClientes() {
-  return $.get(rutaClientes + "todos", function (data) {
-    data = JSON.parse(data || "[]");
-    listaClientes = data;
-  });
-}
-
-/*SERVICIO */
+/* ---------- TIPOS DE SERVICIO ---------- */
 function CargarTiposServicio() {
-  return $.get(rutaTipoServicio + "todos", function (data) {
-    data = JSON.parse(data || "[]");
-    listaTiposServicio = data;
+  $.get(rutaTipoServicio + "todos", (data) => {
+    if (!data) return;
+    listaTiposServicio = JSON.parse(data);
   });
 }
 
-function AgregarItemFila(item = null) {
-
+/* ============================================================
+   ÍTEMS DINÁMICOS DE ORDEN DE TRABAJO
+   ============================================================ */
+var AgregarItemFila = async (item = null) => {
   let opcionesTipo = `<option value="">Seleccione tipo de servicio</option>`;
-  listaTiposServicio.forEach(t => {
-    const sel = item && item.TipoServicio_Id == t.id ? "selected" : "";
-    opcionesTipo += `<option value="${t.id}" ${sel}>${t.detalle}</option>`;
+  await $.each(listaTiposServicio, (i, t) => {
+    const label = t.detalle || ("Tipo " + t.id);
+    const selected = item && item.TipoServicio_Id == t.id ? "selected" : "";
+    opcionesTipo += `<option value="${t.id}" ${selected}>${label}</option>`;
   });
 
-  let opcionesClientes = `<option value="">Seleccione cliente</option>`;
-  listaClientes.forEach(c => {
-    const label = `${c.nombres} ${c.apellidos}`;
-    const sel = item && item.Cliente_Id == c.id ? "selected" : "";
-    opcionesClientes += `<option value="${c.id}" ${sel}>${label}</option>`;
+  let opcionesUsuarios = `<option value="">Seleccione usuario</option>`;
+  $.each(listaUsuarios, (i, u) => {
+    const label = u.nombre_usuario || u.nombres || ("Usuario " + u.id);
+    const selected = item && item.Usuario_Id == u.id ? "selected" : "";
+    opcionesUsuarios += `<option value="${u.id}" ${selected}>${label}</option>`;
   });
 
-  const descripcion = item ? item.Descripcion : "";
-  const fecha = item ? item.fecha : ($("#fecha_servicio").val() || "");
+  let descripcion = item ? item.Descripcion : "";
+  let fecha = item ? item.fecha : $("#fecha_servicio").val() || "";
 
   const fila = `
     <tr>
-      <td><input type="text" class="form-control descripcion-item" value="${descripcion}" placeholder="Descripción"></td>
-      <td><select class="form-control tipo-servicio-item">${opcionesTipo}</select></td>
-      <td><select class="form-control usuario-item">${opcionesClientes}</select></td>
-      <td><input type="date" class="form-control fecha-item" value="${fecha}"></td>
-      <td><button type="button" class="btn btn-danger btn-sm" onclick="EliminarFilaItem(this)">X</button></td>
+      <td>
+        <input type="text" class="form-control descripcion-item"
+               value="${descripcion}" placeholder="Descripción">
+      </td>
+      <td>
+        <select class="form-control tipo-servicio-item">${opcionesTipo}</select>
+      </td>
+      <td>
+        <select class="form-control usuario-item">${opcionesUsuarios}</select>
+      </td>
+      <td>
+        <input type="date" class="form-control fecha-item" value="${fecha}">
+      </td>
+      <td>
+        <button type="button" class="btn btn-danger btn-sm"
+                onclick="EliminarFilaItem(this)">X</button>
+      </td>
     </tr>
   `;
 
   $("#tbodyItemsOrden").append(fila);
-}
+};
 
-function EliminarFilaItem(btn) {
+var EliminarFilaItem = (btn) => {
   $(btn).closest("tr").remove();
-}
+};
 
+/* ============================================================
+   GUARDAR O ACTUALIZAR ORDEN DE TRABAJO
+   ============================================================ */
 function GuardarEditarOrden(e) {
   e.preventDefault();
 
   const Form = new FormData($("#form_orden_trabajo")[0]);
-  const idServicio = $("#idServicio").val() || 0;
-  const accion = idServicio > 0 ? "actualizar" : "insertar";
 
+  let idServicio = $("#idServicio").val() || 0;
+  let accion     = idServicio > 0 ? "actualizar" : "insertar";
+
+  // Construir JSON de ítems
   const items = [];
   $("#tbodyItemsOrden tr").each(function () {
     const descripcion = $(this).find(".descripcion-item").val();
     const tipo        = $(this).find(".tipo-servicio-item").val();
-    const cliente     = $(this).find(".usuario-item").val();
+    const usuario     = $(this).find(".usuario-item").val();
     const fecha       = $(this).find(".fecha-item").val();
 
-    if (descripcion && tipo && cliente) {
+    if (descripcion && tipo) {
       items.push({
         descripcion: descripcion,
         tipo_servicio_id: tipo,
-        usuario_id: cliente,
+        usuario_id: usuario,
         fecha: fecha
       });
     }
@@ -198,34 +204,44 @@ function GuardarEditarOrden(e) {
   }
 
   Form.append("items", JSON.stringify(items));
+  
+  Form.forEach((value, key) => {
+    console.log(key + ': ' + value);
+  });
 
   $.ajax({
-  url: rutaOrdenTrabajo + accion,
-  type: "POST",
-  data: Form,
-  contentType: false,
-  processData: false,
-  dataType: "json",
-  success: (r) => {
-    if (r && r.ok) {
-      alert(r.mensaje || "Orden guardada con éxito");
-      CargaLista();
-      LimpiarFormularioOrden();
-    } else {
-      alert((r && r.mensaje) ? r.mensaje : "Error en el guardado");
+    url: rutaOrdenTrabajo + accion,
+    type: "post",
+    data: Form,
+    contentType: false,
+    processData: false,
+    success: (resp) => {
+      let r;
+      try { r = JSON.parse(resp); } catch { r = resp; }
+
+      if (r.ok || r === "ok") {
+        alert(r.mensaje || "Orden guardada con éxito");
+        // Si se retornó idServicio guardarlo en hidden para posible edición
+        if (r.idServicio) {
+          $("#idServicio").val(r.idServicio);
+        }
+        CargaLista();
+        LimpiarFormularioOrden();
+      } else {
+        alert(r.mensaje || "Error en el guardado");
+      }
     }
-  },
-  error: (xhr) => {
-    console.error("RESPUESTA DEL SERVIDOR:", xhr.responseText);
-    alert("Error del servidor:\n" + xhr.responseText);
-  }
-});
+  });
 }
 
+/* ============================================================
+   EDITAR ORDEN DE TRABAJO
+   ============================================================ */
 function editarOrden(idServicio) {
-  $.post(rutaOrdenTrabajo + "unoServicio", { idServicio }, function (resp) {
-    const data = JSON.parse(resp);
-    const srv = data.servicio;
+  $.post(rutaOrdenTrabajo + "unoServicio", { idServicio: idServicio }, (resp) => {
+    let data = JSON.parse(resp);
+
+    const srv  = data.servicio;
     const items = data.items;
 
     $("#idServicio").val(srv.id);
@@ -240,16 +256,28 @@ function editarOrden(idServicio) {
   });
 }
 
-function eliminarOrden(idServicio) {
+/* ============================================================
+   ELIMINAR ORDEN DE TRABAJO
+   ============================================================ */
+var eliminarOrden = (idServicio) => {
   if (!confirm("¿Desea eliminar esta orden?")) return;
 
-  $.post(rutaOrdenTrabajo + "eliminar", { idServicio }, function (resp) {
-    const r = JSON.parse(resp);
-    alert(r.mensaje);
-    if (r.ok) CargaLista();
-  });
-}
+  $.post(rutaOrdenTrabajo + "eliminar", { idServicio }, (resp) => {
+    let r;
+    try { r = JSON.parse(resp); } catch { r = resp; }
 
+    if (r.ok || r === "ok") {
+      alert(r.mensaje || "Eliminado con éxito");
+      CargaLista();
+    } else {
+      alert(r.mensaje || "Error al eliminar");
+    }
+  });
+};
+
+/* ============================================================
+   LIMPIAR FORMULARIO
+   ============================================================ */
 function LimpiarFormularioOrden() {
   $("#idServicio").val("");
   $("#id_vehiculo").val("");
@@ -261,3 +289,5 @@ function LimpiarFormularioOrden() {
 
   $("#ModalOrdenTrabajo").modal("hide");
 }
+
+init();

@@ -1,0 +1,43 @@
+<div style="font-family: 'Segoe UI', sans-serif; background-color: #1a1a1a; color: #e0e0e0; min-height: 100vh; text-align: center; padding: 2rem; box-sizing: border-box;">
+
+  <h1 style="color: #fceabb; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 0.5rem;">
+    Los archivos de 𝙱𝙰𝚃𝙼𝙰𝙽 🦇
+  </h1>
+
+  <p style="color: #a0a0a0; max-width: 600px; margin: 0 auto 2rem auto; line-height: 1.5;">
+    Bienvenido de vuelta, señor. Esta aplicación generada con Angular le ayudará a gestionar sus archivos de la Base de Datos "mecánica", enlazada a la Batcomputer.
+  </p>
+
+  <nav>
+    <ul style="list-style-type: none; padding: 0; display: flex; justify-content: center; gap: 15px; margin-bottom: 3rem;">
+      
+      <li>
+        <a routerLink="empleados" style="text-decoration: none; background-color: #333; color: #fff; padding: 10px 20px; border-radius: 4px; border: 1px solid #444; font-weight: bold;">
+          Empleado
+        </a>
+      </li>
+      
+      <li>
+        <a href="Cliente" style="text-decoration: none; background-color: #333; color: #fff; padding: 10px 20px; border-radius: 4px; border: 1px solid #444; font-weight: bold;">
+          Cliente
+        </a>
+      </li>
+      
+      <li>
+        <a href="Usuarios" style="text-decoration: none; background-color: #333; color: #fff; padding: 10px 20px; border-radius: 4px; border: 1px solid #444; font-weight: bold;">
+          Usuario
+        </a>
+      </li>
+
+    </ul>
+  </nav>
+
+  <div>
+    <router-outlet></router-outlet>
+  </div>
+
+  <footer style="margin-top: 50px; font-size: 0.8rem; color: #555; border-top: 1px solid #333; padding-top: 20px;">
+    <p>&copy; 2025 THE BATMAN FILES - Angular. Todos los derechos reservados.</p>
+  </footer>
+
+</div>

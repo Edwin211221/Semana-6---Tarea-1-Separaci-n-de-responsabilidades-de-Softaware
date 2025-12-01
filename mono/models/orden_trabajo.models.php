@@ -1,152 +1,138 @@
 <?php
-require_once('../config/conexion.php');
+error_reporting(0);
+/*TODO: Requerimientos */
+require_once('../config/sesiones.php');
+require_once("../models/servicios.models.php");
+require_once("../models/orden_trabajo.models.php");
 
-class OrdenTrabajo {
+$Servicios    = new Servicios;
+$OrdenTrabajo = new OrdenTrabajo;
 
-    /* ================================================
-       OBTENER TODAS LAS ÓRDENES PARA EL LISTADO
-       ================================================ */
-    public function todos() {
-    $con = new ClaseConectar();
-    $con = $con->ProcedimientoConectar();
+switch ($_GET["op"]) {
 
-    $sql = "
-        SELECT 
-            s.id AS idServicio,
-            s.fecha_servicio AS fecha,
-            CONCAT(v.marca,' ',v.modelo,' (',v.anio,')') AS vehiculo,
-            u.nombre_usuario AS usuario,
-            COUNT(ot.id) AS cantidad_items
-        FROM servicios s
-        INNER JOIN vehiculos v ON v.id = s.id_vehiculo
-        INNER JOIN usuarios u ON u.id = s.id_usuario
-        LEFT JOIN orden_trabajo ot ON ot.Servicio_Id = s.id
-        GROUP BY s.id
-        ORDER BY s.id DESC
-    ";
+    /* TODO: Listar todos los items de orden de trabajo */
+    case 'todos':
+        $datos = array();
+        $datos = $OrdenTrabajo->todos();
+        while ($row = mysqli_fetch_assoc($datos)) {
+            $todos[] = $row;
+        }
+        echo json_encode($todos);
+        break;
 
-    $datos = mysqli_query($con, $sql);
-    $con->close();
-    return $datos;
-}
+    /* TODO: Obtener un ítem de orden de trabajo */
+    case 'uno':
+        $idOrdenTrabajo = $_POST["idOrdenTrabajo"];
+        $datos = array();
+        $datos = $OrdenTrabajo->uno($idOrdenTrabajo);
+        $res   = mysqli_fetch_assoc($datos);
+        echo json_encode($res);
+        break;
 
+    /* 
+     * TODO: Insertar una ORDEN DE TRABAJO COMPLETA
+     * 1) Inserta en servicios
+     * 2) Inserta varios items en Orden_Trabajo
+     */
+    case 'insertar':
 
-    /* ================================================
-       OBTENER UN ÍTEM
-       ================================================ */
-    public function uno($idOrdenTrabajo) {
-        $con = new ClaseConectar();
-        $con = $con->ProcedimientoConectar();
+        // Datos del servicio
+        $id_vehiculo     = $_POST["id_vehiculo"];
+        $id_usuario_serv = $_POST["id_usuario"]; // quien registra el servicio
+        $fecha_servicio  = isset($_POST["fecha_servicio"]) ? $_POST["fecha_servicio"] : null;
 
-        $sql = "SELECT * FROM orden_trabajo WHERE id = $idOrdenTrabajo";
+        // Items enviados como JSON en $_POST["items"]
+        // Ejemplo de items:
+        // [
+        //   {"descripcion":"Cambio de bujías","tipo_servicio_id":1,"usuario_id":3,"fecha":"2025-11-20"},
+        //   {"descripcion":"Lavado de motor","tipo_servicio_id":2,"usuario_id":3,"fecha":"2025-11-20"}
+        // ]
+        $itemsJson = isset($_POST["items"]) ? $_POST["items"] : "[]";
+        $items     = json_decode($itemsJson, true);
 
-        $datos = mysqli_query($con, $sql);
-        $con->close();
-        return $datos;
-    }
+        $respuesta = array(
+            "ok"         => false,
+            "mensaje"    => "",
+            "idServicio" => null
+        );
 
-    /* ================================================
-       OBTENER ITEMS POR SERVICIO
-       ================================================ */
-    public function itemsPorServicio($idServicio) {
-        $con = new ClaseConectar();
-        $con = $con->ProcedimientoConectar();
+        // 1) Guardar primero el SERVICIO
+        $idServicio = $Servicios->InsertarRetornarId($id_vehiculo, $id_usuario_serv, $fecha_servicio);
 
-        $sql = "
-            SELECT 
-                ot.id,
-                ot.Descripcion,
-                ot.Servicio_Id,
-                ot.TipoServicio_Id,
-                ot.Cliente_Id,
-                ot.fecha,
-                ts.detalle AS tipo_servicio,
-                CONCAT(c.nombres,' ',c.apellidos) AS cliente
-            FROM orden_trabajo ot
-            INNER JOIN tipo_servicio ts ON ts.id = ot.TipoServicio_Id
-            INNER JOIN clientes c ON c.id = ot.Cliente_Id
-            WHERE ot.Servicio_Id = $idServicio
-            ORDER BY ot.id DESC;
-        ";
+        if ($idServicio <= 0) {
+            $respuesta["ok"]      = false;
+            $respuesta["mensaje"] = "Error al insertar el servicio";
+            echo json_encode($respuesta);
+            break;
+        }
 
-        $datos = mysqli_query($con, $sql);
-        $con->close();
-        return $datos;
-    }
+        // 2) Guardar los ITEMS de la orden de trabajo
+        $errores = 0;
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                $Descripcion     = $item["descripcion"];
+                $TipoServicio_Id = $item["tipo_servicio_id"];
+                $Usuario_Id      = $item["usuario_id"];
+                $fechaItem       = isset($item["fecha"]) && $item["fecha"] != "" 
+                                    ? $item["fecha"] 
+                                    : ($fecha_servicio != null ? $fecha_servicio : date('Y-m-d'));
 
-    /* ================================================
-       INSERTAR ITEM
-       ================================================ */
-    public function Insertar($Descripcion, $Servicio_Id, $TipoServicio_Id, $Cliente_Id, $fecha) {
-        $con = new ClaseConectar();
-        $con = $con->ProcedimientoConectar();
+                $resItem = $OrdenTrabajo->Insertar(
+                    $Descripcion,
+                    $idServicio,
+                    $TipoServicio_Id,
+                    $Usuario_Id,
+                    $fechaItem
+                );
 
-        $sql = "
-            INSERT INTO orden_trabajo
-            (Descripcion, Servicio_Id, TipoServicio_Id, Cliente_Id, fecha)
-            VALUES
-            ('$Descripcion', $Servicio_Id, $TipoServicio_Id, $Cliente_Id, '$fecha')
-        ";
+                if ($resItem != 'ok') {
+                    $errores++;
+                }
+            }
+        }
 
-        if (mysqli_query($con, $sql)) {
-            $con->close();
-            return "ok";
+        if ($errores == 0) {
+            $respuesta["ok"]         = true;
+            $respuesta["mensaje"]    = "Orden de trabajo registrada correctamente";
+            $respuesta["idServicio"] = $idServicio;
         } else {
-            $e = mysqli_error($con);
-            $con->close();
-            return $e;
+            $respuesta["ok"]         = false;
+            $respuesta["mensaje"]    = "Se registró el servicio pero hubo errores en algunos ítems de la orden de trabajo";
+            $respuesta["idServicio"] = $idServicio;
         }
-    }
 
-    /* ================================================
-       ACTUALIZAR ITEM
-       ================================================ */
-    public function Actualizar($id, $Descripcion, $Servicio_Id, $TipoServicio_Id, $Cliente_Id, $fecha) {
-        $con = new ClaseConectar();
-        $con = $con->ProcedimientoConectar();
+        echo json_encode($respuesta);
+        break;
 
-        $sql = "
-            UPDATE orden_trabajo
-            SET 
-                Descripcion = '$Descripcion',
-                Servicio_Id = $Servicio_Id,
-                TipoServicio_Id = $TipoServicio_Id,
-                Cliente_Id = $Cliente_Id,
-                fecha = '$fecha'
-            WHERE id = $id
-        ";
+    /* TODO: Actualizar un ítem de la orden de trabajo */
+    case 'actualizar':
+        $idOrdenTrabajo = $_POST["idOrdenTrabajo"];
+        $Descripcion    = $_POST["Descripcion"];
+        $Servicio_Id    = $_POST["Servicio_Id"];
+        $TipoServicio_Id= $_POST["TipoServicio_Id"];
+        $Usuario_Id     = $_POST["Usuario_Id"];
+        $fecha          = $_POST["fecha"];
 
-        if (mysqli_query($con, $sql)) {
-            $con->close();
-            return "ok";
-        } else {
-            $e = mysqli_error($con);
-            $con->close();
-            return $e;
-        }
-    }
+        $datos = array();
+        $datos = $OrdenTrabajo->Actualizar(
+            $idOrdenTrabajo,
+            $Descripcion,
+            $Servicio_Id,
+            $TipoServicio_Id,
+            $Usuario_Id,
+            $fecha
+        );
+        echo json_encode($datos);
+        break;
 
-    /* ================================================
-       ELIMINAR SERVICIO COMPLETO
-       ================================================ */
-    public function Eliminar($idServicio) {
-        $con = new ClaseConectar();
-        $con = $con->ProcedimientoConectar();
+    /* TODO: Eliminar un ítem de la orden de trabajo */
+    case 'eliminar':
+        $idOrdenTrabajo = $_POST["idOrdenTrabajo"];
+        $datos = array();
+        $datos = $OrdenTrabajo->Eliminar($idOrdenTrabajo);
+        echo json_encode($datos);
+        break;
 
-        mysqli_begin_transaction($con);
-
-        try {
-            mysqli_query($con, "DELETE FROM orden_trabajo WHERE Servicio_Id = $idServicio");
-            mysqli_query($con, "DELETE FROM servicios WHERE id = $idServicio");
-
-            mysqli_commit($con);
-            $con->close();
-            return "ok";
-
-        } catch (Exception $e) {
-            mysqli_rollback($con);
-            $con->close();
-            return $e->getMessage();
-        }
-    }
+    default:
+        break;
 }

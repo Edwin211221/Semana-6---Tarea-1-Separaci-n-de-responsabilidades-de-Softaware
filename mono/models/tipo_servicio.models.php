@@ -1,8 +1,8 @@
 <?php
 //TODO: Requerimientos 
-require_once('../config/conexion.php');
+require_once(__DIR__ . '/../config/conexion.php');
 
-class Tipo_Servicio
+class Tipo_Servicio 
 {
     /*TODO: Procedimiento para sacar todos los registros*/
     public function todos()

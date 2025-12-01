@@ -1,136 +1,137 @@
 <?php
-header('Content-Type: application/json; charset=utf-8');
+//error_reporting(0);
+/*TODO: Requerimientos */
 require_once('../config/sesiones.php');
 require_once("../models/servicios.models.php");
 require_once("../models/orden_trabajo.models.php");
 
-$Servicios    = new Servicios();
-$OrdenTrabajo = new OrdenTrabajo();
+$Servicios    = new Servicios;
+$OrdenTrabajo = new OrdenTrabajo;
 
-$op = isset($_GET["op"]) ? $_GET["op"] : "";
+switch ($_GET["op"]) {
 
-switch ($op) {
-
+    /* TODO: Listar todos los items de orden de trabajo */
     case 'todos':
+        $datos = array();
         $datos = $OrdenTrabajo->todos();
-        $todos = [];
-        if ($datos) {
-            while ($row = mysqli_fetch_assoc($datos)) {
-                $todos[] = $row;
-            }
+        while ($row = mysqli_fetch_assoc($datos)) {
+            $todos[] = $row;
         }
         echo json_encode($todos);
         break;
 
-    // Traer servicio + items para editar
-    case 'unoServicio':
-        $idServicio = intval($_POST["idServicio"] ?? 0);
+    /* TODO: Obtener un ítem de orden de trabajo */
+    case 'uno':
+        $idOrdenTrabajo = $_POST["idOrdenTrabajo"];
+        $datos = array();
+        $datos = $OrdenTrabajo->uno($idOrdenTrabajo);
+        $res   = mysqli_fetch_assoc($datos);
+        echo json_encode($res);
+        break;
+
+    /* 
+     * TODO: Insertar una ORDEN DE TRABAJO COMPLETA
+     * 1) Inserta en servicios
+     * 2) Inserta varios items en Orden_Trabajo
+     */
+    case 'insertar':
+
+        // Datos del servicio
+        $id_vehiculo     = $_POST["id_vehiculo"];
+        $id_usuario_serv = $_POST["id_usuario"]; // quien registra el servicio
+        $fecha_servicio  = isset($_POST["fecha_servicio"]) ? $_POST["fecha_servicio"] : null;
+
+        // Items enviados como JSON en $_POST["items"]
+        // Ejemplo de items:
+        // [
+        //   {"descripcion":"Cambio de bujías","tipo_servicio_id":1,"usuario_id":3,"fecha":"2025-11-20"},
+        //   {"descripcion":"Lavado de motor","tipo_servicio_id":2,"usuario_id":3,"fecha":"2025-11-20"}
+        // ]
+        $itemsJson = isset($_POST["items"]) ? $_POST["items"] : "[]";
+        $items     = json_decode($itemsJson, true);
+
+        $respuesta = array(
+            "ok"         => false,
+            "mensaje"    => "",
+            "idServicio" => null
+        );
+
+        // 1) Guardar primero el SERVICIO
+        $idServicio = $Servicios->InsertarRetornarId($id_vehiculo, $id_usuario_serv, $fecha_servicio);
         if ($idServicio <= 0) {
-            echo json_encode(["ok"=>false, "mensaje"=>"ID de servicio inválido."]);
+            $respuesta["ok"]      = false;
+            $respuesta["mensaje"] = "Error al insertar el servicio";
+            echo json_encode($respuesta);
             break;
         }
 
-        $servicio = $Servicios->uno($idServicio);
-        $srvRow = $servicio ? mysqli_fetch_assoc($servicio) : null;
-
-        $itemsData = $OrdenTrabajo->itemsPorServicio($idServicio);
-        $items = [];
-        if ($itemsData) {
-            while ($it = mysqli_fetch_assoc($itemsData)) {
-                $items[] = $it;
-            }
-        }
-
-        echo json_encode([
-            "ok" => true,
-            "servicio" => $srvRow,
-            "items" => $items
-        ]);
-        break;
-
-    case 'insertar':
-
-        $id_vehiculo = intval($_POST["id_vehiculo"] ?? 0);
-        $id_usuario  = intval($_POST["id_usuario"] ?? 0); // quien registra
-        $fecha_servicio = $_POST["fecha_servicio"] ?? null;
-
-        $items = [];
-        if (!empty($_POST["items"])) {
-            $items = json_decode($_POST["items"], true);
-            if (!is_array($items)) $items = [];
-        }
-
-        $respuesta = ["ok"=>false, "mensaje"=>"", "idServicio"=>null];
-
-        if ($id_vehiculo <= 0) {
-            $respuesta["mensaje"] = "Debe seleccionar un vehículo.";
-            echo json_encode($respuesta); break;
-        }
-        if ($id_usuario <= 0) {
-            $respuesta["mensaje"] = "Debe seleccionar el usuario que registra.";
-            echo json_encode($respuesta); break;
-        }
-        if (count($items) === 0) {
-            $respuesta["mensaje"] = "Debe ingresar al menos un ítem.";
-            echo json_encode($respuesta); break;
-        }
-
-        // 1) Inserta Servicio
-        $idServicio = $Servicios->InsertarRetornarId($id_vehiculo, $id_usuario, $fecha_servicio);
-        if ($idServicio <= 0) {
-            $respuesta["mensaje"] = "No se pudo registrar el servicio.";
-            echo json_encode($respuesta); break;
-        }
-
-        // 2) Inserta items
+        // 2) Guardar los ITEMS de la orden de trabajo
         $errores = 0;
-        foreach ($items as $item) {
-            $descripcion = trim($item["descripcion"] ?? "");
-            $tipo_id     = intval($item["tipo_servicio_id"] ?? 0);
-            $cliente_id  = intval($item["usuario_id"] ?? 0); // cliente seleccionado
-            $fecha_item  = $item["fecha"] ?? ($fecha_servicio ?: date('Y-m-d'));
+        if (is_array($items)) {
+            foreach ($items as $item) {
+                $Descripcion     = $item["descripcion"];
+                $TipoServicio_Id = $item["tipo_servicio_id"];
+                $Usuario_Id      = $item["usuario_id"];
+                $fechaItem       = isset($item["fecha"]) && $item["fecha"] != "" 
+                                    ? $item["fecha"] 
+                                    : ($fecha_servicio != null ? $fecha_servicio : date('Y-m-d'));
 
-            // ✅ validación fuerte
-            if ($descripcion === "" || $tipo_id <= 0 || $cliente_id <= 0) {
-                $errores++;
-                continue;
+                $resItem = $OrdenTrabajo->Insertar(
+                    $Descripcion,
+                    $idServicio,
+                    $TipoServicio_Id,
+                    $Usuario_Id,
+                    $fechaItem
+                );
+
+                if ($resItem != 'ok') {
+                    $errores++;
+                }
             }
-
-            $resItem = $OrdenTrabajo->Insertar(
-                $descripcion,
-                $idServicio,
-                $tipo_id,
-                $cliente_id,
-                $fecha_item
-            );
-
-            if ($resItem !== "ok") $errores++;
         }
 
-        $respuesta["idServicio"] = $idServicio;
-
-        if ($errores === 0) {
-            $respuesta["ok"] = true;
-            $respuesta["mensaje"] = "Orden de trabajo registrada correctamente.";
+        if ($errores == 0) {
+            $respuesta["ok"]         = true;
+            $respuesta["mensaje"]    = "Orden de trabajo registrada correctamente";
+            $respuesta["idServicio"] = $idServicio;
         } else {
-            $respuesta["mensaje"] = "Servicio registrado, pero $errores ítem(s) fallaron. Revisa que todos tengan cliente.";
+            $respuesta["ok"]         = false;
+            $respuesta["mensaje"]    = "Se registró el servicio pero hubo errores en algunos ítems de la orden de trabajo";
+            $respuesta["idServicio"] = $idServicio;
         }
 
         echo json_encode($respuesta);
         break;
 
-    // Elimina servicio completo (lo usa tu JS eliminarOrden)
-    case 'eliminar':
-        $idServicio = intval($_POST["idServicio"] ?? 0);
-        if ($idServicio <= 0) {
-            echo json_encode(["ok"=>false, "mensaje"=>"ID inválido."]); break;
-        }
+    /* TODO: Actualizar un ítem de la orden de trabajo */
+    case 'actualizar':
+        $idOrdenTrabajo = $_POST["idOrdenTrabajo"];
+        $Descripcion    = $_POST["Descripcion"];
+        $Servicio_Id    = $_POST["Servicio_Id"];
+        $TipoServicio_Id= $_POST["TipoServicio_Id"];
+        $Usuario_Id     = $_POST["Usuario_Id"];
+        $fecha          = $_POST["fecha"];
 
-        $res = $OrdenTrabajo->Eliminar($idServicio);
-        echo json_encode(["ok"=>$res==="ok", "mensaje"=>$res]);
+        $datos = array();
+        $datos = $OrdenTrabajo->Actualizar(
+            $idOrdenTrabajo,
+            $Descripcion,
+            $Servicio_Id,
+            $TipoServicio_Id,
+            $Usuario_Id,
+            $fecha
+        );
+        echo json_encode($datos);
+        break;
+
+    /* TODO: Eliminar un ítem de la orden de trabajo */
+    case 'eliminar':
+        $idOrdenTrabajo = $_POST["idOrdenTrabajo"];
+        $datos = array();
+        $datos = $OrdenTrabajo->Eliminar($idOrdenTrabajo);
+        echo json_encode($datos);
         break;
 
     default:
-        echo json_encode(["ok"=>false, "mensaje"=>"op no válido"]);
         break;
 }

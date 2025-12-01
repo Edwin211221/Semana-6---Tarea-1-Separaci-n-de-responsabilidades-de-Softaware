@@ -47,6 +47,26 @@ class Servicios
         }
     }
 
+    // Nuevo: insertar y retornar id permitiendo fecha opcional enviada
+    public function InsertarRetornarId($id_vehiculo, $id_usuario, $fecha_servicio = null)
+    {
+        $con = new ClaseConectar();
+        $con = $con->ProcedimientoConectar();
+
+        // Si se envía fecha válida se usa, caso contrario curdate()
+        $fechaSql = ($fecha_servicio !== null && $fecha_servicio !== '') ? "'" . $fecha_servicio . "'" : "curdate()";
+        $cadena = "INSERT INTO `servicios`(id_vehiculo, id_usuario, fecha_servicio) VALUES ($id_vehiculo, $id_usuario, $fechaSql)";
+
+        if (mysqli_query($con, $cadena)) {
+            $idGenerado = mysqli_insert_id($con);
+            $con->close();
+            return $idGenerado;
+        } else {
+            $con->close();
+            return 0; // 0 = error
+        }
+    }
+
     /*TODO: Procedimiento para actualizar */
     public function Actualizar($idServicio, $id_vehiculo, $id_usuario, $fecha_servicio)
     {
@@ -87,27 +107,4 @@ class Servicios
         $con->close();
         return $respuesta;
     }
-    /*Procedimiento para ordenes de trabajo */
-    public function InsertarRetornarId($id_vehiculo, $id_usuario, $fecha_servicio = null)
-{
-    $con = new ClaseConectar();
-    $con = $con->ProcedimientoConectar();
-
-    if ($fecha_servicio) {
-        $cadena = "INSERT INTO `servicios` (id_vehiculo, id_usuario, fecha_servicio)
-                   VALUES ($id_vehiculo, $id_usuario, '$fecha_servicio')";
-    } else {
-        $cadena = "INSERT INTO `servicios` (id_vehiculo, id_usuario, fecha_servicio)
-                   VALUES ($id_vehiculo, $id_usuario, CURDATE())";
-    }
-
-    if (mysqli_query($con, $cadena)) {
-        $idGenerado = mysqli_insert_id($con);
-        $con->close();
-        return $idGenerado;
-    } else {
-        $con->close();
-        return 0;
-    }
-}
 }

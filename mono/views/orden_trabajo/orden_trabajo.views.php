@@ -131,4 +131,6 @@ require_once('../../config/sesiones.php');  ?>
 </div>
 
 <?php require_once('../html/scripts2.php') ?>
+
+<!-- Archivo JS para manejar Servicios + Órdenes de Trabajo -->
 <script src="./orden_trabajo.js"></script>
